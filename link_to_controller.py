@@ -2,10 +2,19 @@ import sublime, sublime_plugin, os
 
 class LinkToControllerCommand(sublime_plugin.TextCommand):
   def run(self, edit):
-    # find word on region
-    file_name       = self.view.file_name()
-    source_path     = os.path.dirname(file_name)
-    rails_view_path = os.path.dirname(source_path).replace('views', 'controllers/')
+    file_name   = self.view.file_name()
+    source_path = os.path.dirname(file_name)
+    folder_path = os.path.dirname(source_path)
+
+    # Check if views/folder/folder or views/namespace/folder
+    if folder_path.split('/')[-1] != 'views':
+      last_folder = source_path.split('/')[-1]
+      if os.path.exists(folder_path.replace(folder_path.split('/')[-1], '').replace('views', 'controllers') + last_folder):
+        rails_view_path = os.path.dirname(source_path).replace('views', 'controllers') + '/'
+      else:
+        rails_view_path = os.path.dirname(folder_path).replace('views', 'controllers') + '/'
+    else:
+      rails_view_path = os.path.dirname(source_path).replace('views', 'controllers/')
 
     region           = self.view.sel()[0]
     controller_point = self.view.word(region)
@@ -18,6 +27,7 @@ class LinkToControllerCommand(sublime_plugin.TextCommand):
     elif len(controller_name.split('_')) > 1:
       name = ''
       array = controller_name.split('_')
+
       for c in reversed(array):
         if name != '':
           name =  c + '_' + name
@@ -28,6 +38,7 @@ class LinkToControllerCommand(sublime_plugin.TextCommand):
           file_name = rails_view_path + name + 's_controller.rb'
         else:
           file_name = rails_view_path + name + '_controller.rb'
+
         if os.path.isfile(file_name):
           files.append(file_name)
 
