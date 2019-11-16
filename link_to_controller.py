@@ -13,38 +13,39 @@ class LinkToControllerCommand(sublime_plugin.TextCommand):
     file_name   = self.view.file_name()
     source_path = os.path.dirname(file_name)
     folder_path = os.path.dirname(source_path)
-
-    # FIXME - have to detect namespace for correct controller name
+    files       = []
 
     if 'views' in folder_path:
-      if folder_path.split('/')[-1] != 'views':
-        last_folder = source_path.split('/')[-1]
-        if os.path.exists(folder_path.replace(folder_path.split('/')[-1], '').replace('views', 'controllers') + last_folder):
-          rails_view_path = os.path.dirname(source_path).replace('views', 'controllers') + '/'
-        else:
-          rails_view_path = os.path.dirname(folder_path).replace('views', 'controllers') + '/'
-      else:
-        rails_view_path = os.path.dirname(source_path).replace('views', 'controllers/')
+      rails_view_path = self.views_rails_view_path(folder_path, source_path)
     else: # helpers
       rails_view_path = os.path.dirname(source_path) + '/controllers/'
 
     region           = self.view.sel()[0]
     controller_point = self.view.word(region)
     controller_path  = self.view.substr(controller_point)
-    files            = []
     controller_name  = controller_path.split('_path')[0]
+    files, file_name = self.controller_file(controller_name, rails_view_path)
 
+    if len(files) == 1:
+      if os.path.isfile(files[0]):
+        self.detect_action_name(file_name, files[0])
+        sublime.active_window().open_file(files[0])
+    else:
+      self.files = files
+      sublime.active_window().show_quick_panel(files, self.open_file)
+
+  def controller_file(self, controller_name, rails_view_path):
+    global _myGlobalController
+    files = []
     if len(controller_name.split('_')) == 1:
-
       if controller_name.split('_')[0][-1] == 's':
         file_name = rails_view_path + controller_name.split('_')[0] + '_controller.rb'
       else:
         file_name = rails_view_path + controller_name.split('_')[0] + 's_controller.rb'
 
       if os.path.isfile(file_name):
-        self.detect_action_name(file_name, file_name)
         _myGlobalController = file_name
-        sublime.active_window().open_file(file_name)
+        files.append(file_name)
 
     elif len(controller_name.split('_')) > 1:
       name  = ''
@@ -59,9 +60,6 @@ class LinkToControllerCommand(sublime_plugin.TextCommand):
         else:
           name += c
 
-        print(c)
-        print(name)
-
         if name[-1] != 's':
           file_name = rails_view_path + name + 's_controller.rb'
         else:
@@ -71,13 +69,19 @@ class LinkToControllerCommand(sublime_plugin.TextCommand):
           _myGlobalController = file_name
           files.append(file_name)
 
-      if len(files) == 1:
-        if os.path.isfile(files[0]):
-          self.detect_action_name(file_name, files[0])
-          sublime.active_window().open_file(files[0])
+    return files, file_name
+
+  def views_rails_view_path(self, folder_path, source_path):
+    if folder_path.split('/')[-1] != 'views':
+      last_folder = source_path.split('/')[-1]
+      if os.path.exists(folder_path.replace(folder_path.split('/')[-1], '').replace('views', 'controllers') + last_folder):
+        rails_view_path = os.path.dirname(source_path).replace('views', 'controllers') + '/'
       else:
-        self.files = files
-        sublime.active_window().show_quick_panel(files, self.open_file)
+        rails_view_path = os.path.dirname(folder_path).replace('views', 'controllers') + '/'
+    else:
+      rails_view_path = os.path.dirname(source_path).replace('views', 'controllers/')
+
+    return rails_view_path
 
   def open_file(self, index):
     if index >= 0:
@@ -87,14 +91,6 @@ class LinkToControllerCommand(sublime_plugin.TextCommand):
     global _myGlobal
 
     action_name = file_name.split('/')[-1].split(first_file.split('/')[-1])[0].replace('_', '')
-
-    print('detect_action_name')
-    print(file_name)
-    print(file_name.split('/')[-1])
-    print(first_file)
-    print(first_file.split('/')[-1])
-    print(action_name)
-
     if action_name is not None:
       # new || edit
       _myGlobal   = 'def ' + action_name
